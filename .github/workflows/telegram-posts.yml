@@ -1,0 +1,46 @@
+name: Send Telegram Legal Posts
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Istanbul/Turkey time is UTC+3 all year.
+    # 08:00 Istanbul = 05:00 UTC.
+    - cron: "0 5 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Send three posts to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          POST_FOOTER: ${{ vars.POST_FOOTER }}
+          POSTS_PER_RUN: "3"
+          DELAY_SECONDS: "5"
+        run: python scripts/send_post.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "Update Telegram posting state"
+            git push
+          fi
